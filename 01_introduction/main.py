@@ -1,5 +1,8 @@
 """Code for Homework 1 of MLOps Zoomcamp 2024."""
+import gc
+
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -47,17 +50,25 @@ print(f"Fraction of records left after dropping outliers: {fraction_left}")
 df_january["PULocationID"] = df_january["PULocationID"].astype(str)
 df_january["DOLocationID"] = df_january["DOLocationID"].astype(str)
 
-enc = OneHotEncoder(handle_unknown='ignore')
+df_train = df_january[["PULocationID", "DOLocationID", "duration"]]
+df_train["duration"] = df_train["duration"].astype(np.int16)
+del df_january
+gc.collect()
+enc = OneHotEncoder(handle_unknown='ignore', dtype=np.int16)
 encoded_data = enc.fit_transform(
-    df_january[["PULocationID", "DOLocationID"]]).toarray()
+    df_train[["PULocationID", "DOLocationID"]]).toarray()
+encoded_data = encoded_data.astype(np.int8)
+y_train = df_train["duration"].values
+del df_train
+gc.collect()
 
 # Now let's use the feature matrix from the previous step to train a model.
 # Train a plain linear regression model with default parameters
 # Calculate the RMSE of the model on the training data
 # What's the RMSE on train?
-reg = LinearRegression().fit(encoded_data, df_january["duration"])
+reg = LinearRegression().fit(encoded_data, y_train)
 predictions = reg.predict(encoded_data)
-mse = mean_squared_error(df_january["duration"], predictions)
+mse = mean_squared_error(y_train, predictions)
 rmse = mse**0.5
 print(f"RMSE on train: {rmse}")
 
@@ -70,9 +81,19 @@ df_february["duration"] = (
     df_february["tpep_pickup_datetime"]).dt.total_seconds()
 df_february["duration"] = df_february["duration"] / 60
 
+df_february["PULocationID"] = df_february["PULocationID"].astype(str)
+df_february["DOLocationID"] = df_february["DOLocationID"].astype(str)
+df_val = df_february[["PULocationID", "DOLocationID", "duration"]]
+df_val["duration"] = df_val["duration"].astype(np.int16)
+del df_february
+gc.collect()
+
+y_val = df_val["duration"].values
 encoded_data_val = enc.transform(
-    df_february[["PULocationID", "DOLocationID"]]).toarray()
+    df_val[["PULocationID", "DOLocationID"]]).toarray()
 predictions_val = reg.predict(encoded_data_val)
-mse_val = mean_squared_error(df_february["duration"], predictions_val)
+del df_val
+gc.collect()
+mse_val = mean_squared_error(y_val, predictions_val)
 rmse_val = mse_val**0.5
 print(f"RMSE on validation: {rmse_val}")
