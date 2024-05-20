@@ -99,4 +99,5 @@ y_val = df_val["duration"].values
 del df_val
 gc.collect()
 rmse_val = mean_squared_error(y_val, predictions_val, squared=False)
+# 7.811
 print(f"RMSE on validation: {rmse_val}")
