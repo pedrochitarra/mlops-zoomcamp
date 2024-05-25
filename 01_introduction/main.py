@@ -2,10 +2,9 @@
 import gc
 
 import pandas as pd
-import numpy as np
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
+from sklearn.feature_extraction import DictVectorizer
 
 
 # Read the data for January
@@ -51,13 +50,15 @@ df_january["PULocationID"] = df_january["PULocationID"].astype(str)
 df_january["DOLocationID"] = df_january["DOLocationID"].astype(str)
 
 df_train = df_january[["PULocationID", "DOLocationID", "duration"]]
-df_train["duration"] = df_train["duration"].astype(np.int16)
+# df_train["duration"] = df_train["duration"].astype(np.float16)
 del df_january
 gc.collect()
-enc = OneHotEncoder(handle_unknown='ignore', dtype=np.int16)
-encoded_data = enc.fit_transform(
-    df_train[["PULocationID", "DOLocationID"]]).toarray()
-encoded_data = encoded_data.astype(np.int8)
+
+dv = DictVectorizer()
+train_dicts = df_train[
+    ["PULocationID", "DOLocationID"]].to_dict(orient="records")
+X_train = dv.fit_transform(train_dicts)
+print(f"Dimensionality of feature matrix: {X_train.shape[1]}")
 y_train = df_train["duration"].values
 del df_train
 gc.collect()
@@ -66,34 +67,37 @@ gc.collect()
 # Train a plain linear regression model with default parameters
 # Calculate the RMSE of the model on the training data
 # What's the RMSE on train?
-reg = LinearRegression().fit(encoded_data, y_train)
-predictions = reg.predict(encoded_data)
+reg = LinearRegression().fit(X_train, y_train)
+predictions = reg.predict(X_train)
 mse = mean_squared_error(y_train, predictions)
 rmse = mse**0.5
+# 7.64
 print(f"RMSE on train: {rmse}")
 
 # Now let's apply this model to the validation dataset (February 2023).
 # What's the RMSE on validation?
-
 df_february = pd.read_parquet("data/yellow_tripdata_2023-02.parquet")
 df_february["duration"] = (
     df_february["tpep_dropoff_datetime"] -
     df_february["tpep_pickup_datetime"]).dt.total_seconds()
 df_february["duration"] = df_february["duration"] / 60
 
+df_february = df_february[(df_february["duration"] >= 1) &
+                          (df_february["duration"] <= 60)]
+
 df_february["PULocationID"] = df_february["PULocationID"].astype(str)
 df_february["DOLocationID"] = df_february["DOLocationID"].astype(str)
 df_val = df_february[["PULocationID", "DOLocationID", "duration"]]
-df_val["duration"] = df_val["duration"].astype(np.int16)
 del df_february
 gc.collect()
 
+val_dicts = df_val[
+    ["PULocationID", "DOLocationID"]].to_dict(orient="records")
+X_val = dv.transform(val_dicts)
+predictions_val = reg.predict(X_val)
 y_val = df_val["duration"].values
-encoded_data_val = enc.transform(
-    df_val[["PULocationID", "DOLocationID"]]).toarray()
-predictions_val = reg.predict(encoded_data_val)
 del df_val
 gc.collect()
-mse_val = mean_squared_error(y_val, predictions_val)
-rmse_val = mse_val**0.5
+rmse_val = mean_squared_error(y_val, predictions_val, squared=False)
+# 7.811
 print(f"RMSE on validation: {rmse_val}")
