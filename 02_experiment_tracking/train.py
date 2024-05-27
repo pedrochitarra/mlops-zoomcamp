@@ -1,3 +1,4 @@
+"""Train a random forest model and log the RMSE metric."""
 import os
 import pickle
 import click
@@ -18,11 +19,34 @@ import mlflow
 # What is the value of the min_samples_split parameter?
 # 2
 
+# Q4. Launch the tracking server locally
+# In addition to backend-store-uri, what else do you need to pass to
+# properly configure the server?
+# artifacts-destination
+
+# mlflow server --host 127.0.0.1 --port 8080 --backend-store-uri
+# sqlite:///mlflow.db --artifacts-destination=artifacts
+
+# Q5. Tune model hyperparameters
+# What's the best validation RMSE that you got?
+# 5.335
+
+# Q6. Promote the best model to the model registry
+# What is the test RMSE of the best model?
+# 5.567
+
 mlflow.set_tracking_uri("sqlite:///mlflow.db")
+# mlflow.set_tracking_uri(uri="http://localhost:8080")
+
 mlflow.set_experiment("nyc_green_taxis")
 
 
 def load_pickle(filename: str):
+    """Load a pickle file from the specified path.
+
+    Args:
+        filename (str): Path to the pickle file
+    """
     with open(filename, "rb") as f_in:
         return pickle.load(f_in)
 
@@ -34,7 +58,7 @@ def load_pickle(filename: str):
     help="Location where the processed NYC taxi trip data was saved"
 )
 def run_train(data_path: str):
-
+    """Train a random forest model and log the RMSE metric."""
     X_train, y_train = load_pickle(os.path.join(data_path, "train.pkl"))
     X_val, y_val = load_pickle(os.path.join(data_path, "val.pkl"))
 
@@ -51,6 +75,12 @@ def run_train(data_path: str):
 
         rmse = mean_squared_error(y_val, y_pred, squared=False)
         mlflow.log_metric("rmse", rmse)
+
+        with open("models/lin_reg.bin", "wb") as f_out:
+            pickle.dump(rf, f_out)
+
+        # mlflow.log_artifact("models/lin_reg.bin", "models")
+        mlflow.sklearn.log_model(rf, "models_mlflow")
 
 
 if __name__ == '__main__':
